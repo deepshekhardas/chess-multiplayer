@@ -32,7 +32,8 @@ function createGame(roomId) {
     spectators: [],
     moveHistory: [],
     status: 'waiting',
-    winner: null
+    winner: null,
+    createdAt: Date.now()
   };
 }
 
@@ -216,6 +217,20 @@ io.on('connection', (socket) => {
     console.log(`Player disconnected: ${socket.id}`);
   });
 });
+
+// Clean up abandoned rooms periodically
+const ROOM_TTL = 30 * 60 * 1000; // 30 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [roomId, game] of games) {
+    const hasPlayers = game.players.white || game.players.black;
+    const age = now - game.createdAt;
+    if (!hasPlayers && age > ROOM_TTL) {
+      games.delete(roomId);
+      console.log(`Room ${roomId} cleaned up after ${Math.round(age / 1000)}s idle`);
+    }
+  }
+}, 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
