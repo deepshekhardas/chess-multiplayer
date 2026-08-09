@@ -221,3 +221,16 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Chess server running on port ${PORT}`);
 });
+
+function shutdown(signal) {
+  console.log(`${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+  // Force exit if connections linger
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
