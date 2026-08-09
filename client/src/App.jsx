@@ -301,11 +301,21 @@ function App() {
   }
 
   const isMyTurn = (turn === 'w' && playerColor === 'white') || (turn === 'b' && playerColor === 'black');
+  const statusText = status === 'check' ? 'Check!' :
+                     status === 'checkmate' ? 'Checkmate' :
+                     status === 'stalemate' ? 'Stalemate' :
+                     status === 'draw' ? 'Draw' :
+                     isMyTurn ? 'Your turn' : "Opponent's turn";
 
   return (
     <div className="app">
       <div className="game-container">
         {error && <div className="error-message">{error}</div>}
+
+        <div className="game-header">
+          <span className="game-header-room">Room: {roomId}</span>
+          <span className="game-header-status">{statusText}</span>
+        </div>
 
         <div className={`player-info ${opponentColor || 'black'}`}>
           <div className="color-indicator"></div>
