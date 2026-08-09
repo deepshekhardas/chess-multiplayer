@@ -27,6 +27,8 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [spectateCode, setSpectateCode] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
 
   const chessRef = useRef(new Chess());
 
@@ -97,6 +99,19 @@ function App() {
       });
     });
 
+    newSocket.on('spectate_started', ({ fen, turn, status, moveHistory }) => {
+      chessRef.current = new Chess(fen);
+      setFen(fen);
+      setGameState('playing');
+      setStatus(status);
+      setTurn(turn);
+      setIsSpectator(true);
+      setPlayerColor(null);
+      setOpponentColor(null);
+      setMoveHistory(moveHistory.map(m => ({ san: m.san, color: m.color })));
+      setError(null);
+    });
+
     newSocket.on('error', ({ message }) => {
       setError(message);
       setWaitingForOpponent(false);
@@ -118,6 +133,13 @@ function App() {
     }
   };
 
+  const spectateRoom = () => {
+    if (socket && spectateCode.trim()) {
+      setError(null);
+      socket.emit('spectate', { roomId: spectateCode.trim().toUpperCase() });
+    }
+  };
+
   const copyRoomCode = useCallback(() => {
     if (roomId) {
       navigator.clipboard.writeText(roomId);
@@ -133,6 +155,7 @@ function App() {
 
   const handleSquareClick = (square) => {
     if (!socket || status !== 'playing') return;
+    if (isSpectator) return;
     if ((turn === 'w' && playerColor !== 'white') || (turn === 'b' && playerColor !== 'black')) return;
 
     if (selectedSquare) {
@@ -181,6 +204,7 @@ function App() {
     setMoveHistory([]);
     setGameOver(null);
     setWaitingForOpponent(false);
+    setIsSpectator(false);
     chessRef.current = new Chess();
   };
 
@@ -251,6 +275,21 @@ function App() {
                 Join
               </button>
             </div>
+
+            <div className="spectate-divider">or</div>
+
+            <div className="join-form">
+              <input
+                type="text"
+                placeholder="Spectate room code"
+                value={spectateCode}
+                onChange={(e) => setSpectateCode(e.target.value.toUpperCase())}
+                maxLength={6}
+              />
+              <button className="btn btn-secondary" onClick={spectateRoom}>
+                Spectate
+              </button>
+            </div>
           </div>
 
           {waitingForOpponent && (
@@ -307,21 +346,29 @@ function App() {
       <div className="game-container">
         {error && <div className="error-message">{error}</div>}
 
-        <div className={`player-info ${opponentColor || 'black'}`}>
-          <div className="color-indicator"></div>
-          <span className="player-label">Opponent</span>
-          {!isMyTurn && playerColor && <span className="turn-indicator">Their Turn</span>}
-        </div>
+        {isSpectator && (
+          <div className="spectator-banner">Spectating</div>
+        )}
+
+        {!isSpectator && (
+          <div className={`player-info ${opponentColor || 'black'}`}>
+            <div className="color-indicator"></div>
+            <span className="player-label">Opponent</span>
+            {!isMyTurn && playerColor && <span className="turn-indicator">Their Turn</span>}
+          </div>
+        )}
 
         <div className="chess-board">
           {renderBoard()}
         </div>
 
-        <div className={`player-info ${playerColor}`}>
-          <div className="color-indicator"></div>
-          <span className="player-label">You ({playerColor})</span>
-          {isMyTurn && <span className="turn-indicator">Your Turn</span>}
-        </div>
+        {!isSpectator && (
+          <div className={`player-info ${playerColor}`}>
+            <div className="color-indicator"></div>
+            <span className="player-label">You ({playerColor})</span>
+            {isMyTurn && <span className="turn-indicator">Your Turn</span>}
+          </div>
+        )}
 
         {moveHistory.length > 0 && (
           <div className="move-history">
@@ -337,11 +384,13 @@ function App() {
           </div>
         )}
 
-        <div className="game-controls">
-          <button className="btn" onClick={handleResign}>
-            Resign
-          </button>
-        </div>
+        {!isSpectator && (
+          <div className="game-controls">
+            <button className="btn" onClick={handleResign}>
+              Resign
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

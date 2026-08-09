@@ -84,6 +84,35 @@ io.on('connection', (socket) => {
     console.log(`Player ${socket.id} joined room ${roomCode}`);
   });
 
+  socket.on('spectate', ({ roomId }) => {
+    const roomCode = roomId.toUpperCase();
+    const game = games.get(roomCode);
+
+    if (!game) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    if (!game.players.white && !game.players.black) {
+      socket.emit('error', { message: 'No active players in this room' });
+      return;
+    }
+
+    socket.join(roomCode);
+    game.spectators.push(socket.id);
+    playerSockets.set(socket.id, { roomId: roomCode, color: null });
+
+    socket.emit('spectate_started', {
+      roomId: roomCode,
+      fen: game.chess.fen(),
+      turn: game.chess.turn(),
+      status: game.status,
+      moveHistory: game.moveHistory
+    });
+
+    console.log(`Spectator ${socket.id} joined room ${roomCode}`);
+  });
+
   socket.on('make_move', ({ from, to, promotion }) => {
     const playerInfo = playerSockets.get(socket.id);
     if (!playerInfo) {
@@ -186,8 +215,14 @@ io.on('connection', (socket) => {
     const playerInfo = playerSockets.get(socket.id);
 
     if (playerInfo) {
-      const { roomId, color } = playerInfo;
-      const game = games.get(roomId);
+    const { roomId, color } = playerInfo;
+
+    if (!color) {
+      socket.emit('error', { message: 'Spectators cannot make moves' });
+      return;
+    }
+
+    const game = games.get(roomId);
 
       if (game && game.status === 'playing') {
         // Notify opponent and end game
@@ -203,6 +238,8 @@ io.on('connection', (socket) => {
       if (game) {
         if (game.players.white === socket.id) game.players.white = null;
         if (game.players.black === socket.id) game.players.black = null;
+
+        game.spectators = game.spectators.filter(id => id !== socket.id);
 
         if (!game.players.white && !game.players.black) {
           games.delete(roomId);
