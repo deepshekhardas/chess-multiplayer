@@ -99,6 +99,11 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (game.status !== 'playing') {
+      socket.emit('invalid_move', { reason: 'Game is already over' });
+      return;
+    }
+
     // Check if it's this player's turn
     const turn = game.chess.turn();
     if ((turn === 'w' && color !== 'white') || (turn === 'b' && color !== 'black')) {
