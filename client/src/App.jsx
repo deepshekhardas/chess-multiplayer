@@ -27,6 +27,9 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [myName, setMyName] = useState('Player');
+  const [opponentName, setOpponentName] = useState('Opponent');
 
   const chessRef = useRef(new Chess());
 
@@ -48,7 +51,7 @@ function App() {
       setError(null);
     });
 
-    newSocket.on('game_start', ({ orientation, initialFen }) => {
+    newSocket.on('game_start', ({ orientation, initialFen, playerNames }) => {
       setFen(initialFen);
       chessRef.current = new Chess(initialFen);
       setGameState('playing');
@@ -60,6 +63,10 @@ function App() {
       setSelectedSquare(null);
       setLastMove(null);
       setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      if (playerNames) {
+        setMyName(playerNames[playerColor] || 'Player');
+        setOpponentName(playerNames[playerColor === 'white' ? 'black' : 'white'] || 'Opponent');
+      }
     });
 
     newSocket.on('move_made', (data) => {
@@ -107,14 +114,14 @@ function App() {
 
   const createRoom = () => {
     if (socket) {
-      socket.emit('create_room');
+      socket.emit('create_room', { name: playerName.trim() || undefined });
     }
   };
 
   const joinRoom = () => {
     if (socket && joinCode.trim()) {
       setError(null);
-      socket.emit('join_room', { roomId: joinCode.trim().toUpperCase() });
+      socket.emit('join_room', { roomId: joinCode.trim().toUpperCase(), name: playerName.trim() || undefined });
     }
   };
 
@@ -235,6 +242,16 @@ function App() {
           {error && <div className="error-message">{error}</div>}
 
           <div className="lobby-actions">
+            <div className="join-form">
+              <input
+                type="text"
+                placeholder="Your name (optional)"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+
             <button className="btn btn-primary" onClick={createRoom}>
               Create Game
             </button>
@@ -309,7 +326,7 @@ function App() {
 
         <div className={`player-info ${opponentColor || 'black'}`}>
           <div className="color-indicator"></div>
-          <span className="player-label">Opponent</span>
+          <span className="player-label">{opponentName}</span>
           {!isMyTurn && playerColor && <span className="turn-indicator">Their Turn</span>}
         </div>
 
@@ -319,7 +336,7 @@ function App() {
 
         <div className={`player-info ${playerColor}`}>
           <div className="color-indicator"></div>
-          <span className="player-label">You ({playerColor})</span>
+          <span className="player-label">{myName} ({playerColor})</span>
           {isMyTurn && <span className="turn-indicator">Your Turn</span>}
         </div>
 

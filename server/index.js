@@ -39,20 +39,22 @@ function createGame(roomId) {
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
-  socket.on('create_room', () => {
+  socket.on('create_room', ({ name }) => {
     const roomId = generateRoomCode();
     const game = createGame(roomId);
     games.set(roomId, game);
 
     game.players.white = socket.id;
+    game.playerNames = game.playerNames || {};
+    game.playerNames.white = name || 'Player 1';
     playerSockets.set(socket.id, { roomId, color: 'white' });
 
     socket.join(roomId);
-    socket.emit('room_created', { roomId, color: 'white' });
+    socket.emit('room_created', { roomId, color: 'white', name: game.playerNames.white });
     console.log(`Room ${roomId} created by ${socket.id}`);
   });
 
-  socket.on('join_room', ({ roomId }) => {
+  socket.on('join_room', ({ roomId, name }) => {
     const roomCode = roomId.toUpperCase();
     const game = games.get(roomCode);
 
@@ -67,16 +69,22 @@ io.on('connection', (socket) => {
     }
 
     game.players.black = socket.id;
+    game.playerNames = game.playerNames || {};
+    game.playerNames.black = name || 'Player 2';
     playerSockets.set(socket.id, { roomId: roomCode, color: 'black' });
 
     socket.join(roomCode);
-    socket.emit('room_joined', { roomId: roomCode, color: 'black' });
+    socket.emit('room_joined', { roomId: roomCode, color: 'black', name: game.playerNames.black });
 
     // Notify both players that game is starting
     io.to(roomCode).emit('game_start', {
       orientation: {
         white: game.players.white,
         black: game.players.black
+      },
+      playerNames: {
+        white: game.playerNames.white,
+        black: game.playerNames.black
       },
       initialFen: game.chess.fen()
     });
