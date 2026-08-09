@@ -27,6 +27,8 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [rematchRequested, setRematchRequested] = useState(false);
+  const [rematchReady, setRematchReady] = useState(false);
 
   const chessRef = useRef(new Chess());
 
@@ -95,6 +97,26 @@ function App() {
         type: data.reason,
         winner: data.winner
       });
+    });
+
+    newSocket.on('rematch_requested', ({ by }) => {
+      setRematchRequested(true);
+    });
+
+    newSocket.on('rematch_started', ({ initialFen }) => {
+      chessRef.current = new Chess(initialFen);
+      setFen(initialFen);
+      setGameState('playing');
+      setStatus('playing');
+      setTurn('w');
+      setMoveHistory([]);
+      setGameOver(null);
+      setSelectedSquare(null);
+      setLastMove(null);
+      setRematchRequested(false);
+      setRematchReady(false);
+      setPlayerColor(playerColor === 'white' ? 'black' : 'white');
+      setOpponentColor(playerColor === 'white' ? 'white' : 'black');
     });
 
     newSocket.on('error', ({ message }) => {
@@ -170,6 +192,13 @@ function App() {
     }
   };
 
+  const handleRematch = () => {
+    if (socket) {
+      socket.emit('request_rematch');
+      setRematchReady(true);
+    }
+  };
+
   const returnToLobby = () => {
     setGameState('lobby');
     setRoomId('');
@@ -181,6 +210,8 @@ function App() {
     setMoveHistory([]);
     setGameOver(null);
     setWaitingForOpponent(false);
+    setRematchRequested(false);
+    setRematchReady(false);
     chessRef.current = new Chess();
   };
 
@@ -290,10 +321,16 @@ function App() {
               <p className="winner">Game ended in a draw</p>
             )}
             <div className="game-over-actions">
-              <button className="btn btn-primary" onClick={returnToLobby}>
+              <button className="btn btn-primary" onClick={handleRematch} disabled={rematchReady}>
+                {rematchReady ? 'Waiting for opponent...' : 'Play Again'}
+              </button>
+              <button className="btn" onClick={returnToLobby}>
                 Return to Lobby
               </button>
             </div>
+            {rematchRequested && !rematchReady && (
+              <p className="winner">Opponent wants a rematch!</p>
+            )}
           </div>
         </div>
       </div>
