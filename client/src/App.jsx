@@ -131,28 +131,41 @@ function App() {
     return moves.map(m => m.to);
   };
 
+  const canPlayerMove = () => {
+    return socket && status === 'playing' &&
+      ((turn === 'w' && playerColor === 'white') || (turn === 'b' && playerColor === 'black'));
+  };
+
+  const tryMakeMove = (from, to) => {
+    const moves = getValidMovesForSquare(from);
+    if (!moves.includes(to)) return false;
+
+    const piece = chessRef.current.get(to);
+    const isPromotion = piece && piece.type === 'p' &&
+      ((playerColor === 'white' && to[1] === '8') ||
+       (playerColor === 'black' && to[1] === '1'));
+
+    if (isPromotion) {
+      socket.emit('make_move', { from, to, promotion: 'q' });
+    } else {
+      socket.emit('make_move', { from, to });
+    }
+    setSelectedSquare(null);
+    setValidMoves([]);
+    return true;
+  };
+
   const handleSquareClick = (square) => {
-    if (!socket || status !== 'playing') return;
-    if ((turn === 'w' && playerColor !== 'white') || (turn === 'b' && playerColor !== 'black')) return;
+    if (!canPlayerMove()) return;
 
     if (selectedSquare) {
-      const moves = getValidMovesForSquare(selectedSquare);
-      if (moves.includes(square)) {
+      if (!tryMakeMove(selectedSquare, square)) {
         const piece = chessRef.current.get(square);
-        const isPromotion = piece && piece.type === 'p' &&
-          ((playerColor === 'white' && square[1] === '8') ||
-           (playerColor === 'black' && square[1] === '1'));
-
-        if (isPromotion) {
-          socket.emit('make_move', { from: selectedSquare, to: square, promotion: 'q' });
-        } else {
-          socket.emit('make_move', { from: selectedSquare, to: square });
+        if (piece && ((playerColor === 'white' && piece.color === 'w') ||
+                       (playerColor === 'black' && piece.color === 'b'))) {
+          setSelectedSquare(square);
+          setValidMoves(getValidMovesForSquare(square));
         }
-        setSelectedSquare(null);
-        setValidMoves([]);
-      } else {
-        setSelectedSquare(square);
-        setValidMoves(getValidMovesForSquare(square));
       }
     } else {
       const piece = chessRef.current.get(square);
@@ -162,6 +175,36 @@ function App() {
         setValidMoves(getValidMovesForSquare(square));
       }
     }
+  };
+
+  const handleDragStart = (e, square) => {
+    const piece = chessRef.current.get(square);
+    if (!canPlayerMove() || !piece) {
+      e.preventDefault();
+      return;
+    }
+    if ((playerColor === 'white' && piece.color !== 'w') ||
+        (playerColor === 'black' && piece.color !== 'b')) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData('text/plain', square);
+    e.dataTransfer.effectAllowed = 'move';
+    setSelectedSquare(square);
+    setValidMoves(getValidMovesForSquare(square));
+  };
+
+  const handleDrop = (e, square) => {
+    e.preventDefault();
+    const from = e.dataTransfer.getData('text/plain');
+    if (from) {
+      tryMakeMove(from, square);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const handleResign = () => {
@@ -214,9 +257,17 @@ function App() {
             key={square}
             className={className}
             onClick={() => handleSquareClick(square)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, square)}
           >
             {piece && (
-              <span className="piece">{PIECES[piece.color === 'w' ? piece.type.toUpperCase() : piece.type]}</span>
+              <span
+                className="piece"
+                draggable={canPlayerMove()}
+                onDragStart={(e) => handleDragStart(e, square)}
+              >
+                {PIECES[piece.color === 'w' ? piece.type.toUpperCase() : piece.type]}
+              </span>
             )}
           </div>
         );
