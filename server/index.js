@@ -19,6 +19,37 @@ const io = new Server(server, {
 const games = new Map();
 const playerSockets = new Map(); // socketId -> { roomId, color }
 
+function broadcastClock(game) {
+  const now = Date.now();
+  const elapsed = now - game.clock.lastTurnAt;
+  const turn = game.chess.turn();
+  const white = Math.max(0, game.clock.white - (turn === 'w' ? elapsed : 0));
+  const black = Math.max(0, game.clock.black - (turn === 'b' ? elapsed : 0));
+
+  io.to(game.id).emit('clock_tick', { white, black });
+
+  const timeoutColor = turn === 'w' ? (white === 0 ? 'white' : null) : (black === 0 ? 'black' : null);
+  if (timeoutColor && game.status === 'playing') {
+    const winner = timeoutColor === 'white' ? 'black' : 'white';
+    game.status = 'timeout';
+    game.winner = winner;
+    io.to(game.id).emit('game_over', {
+      reason: 'timeout',
+      winner,
+      winnerColor: winner
+    });
+    console.log(`Game ${game.id} ended by timeout (${timeoutColor})`);
+  }
+}
+
+setInterval(() => {
+  for (const game of games.values()) {
+    if (game.status === 'playing') {
+      broadcastClock(game);
+    }
+  }
+}, 1000);
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -32,7 +63,13 @@ function createGame(roomId) {
     spectators: [],
     moveHistory: [],
     status: 'waiting',
-    winner: null
+    winner: null,
+    clock: {
+      white: 10 * 60 * 1000,
+      black: 10 * 60 * 1000,
+      increment: 5 * 1000,
+      lastTurnAt: Date.now()
+    }
   };
 }
 
@@ -73,10 +110,15 @@ io.on('connection', (socket) => {
     socket.emit('room_joined', { roomId: roomCode, color: 'black' });
 
     // Notify both players that game is starting
+    game.clock.lastTurnAt = Date.now();
     io.to(roomCode).emit('game_start', {
       orientation: {
         white: game.players.white,
         black: game.players.black
+      },
+      clock: {
+        white: game.clock.white,
+        black: game.clock.black
       },
       initialFen: game.chess.fen()
     });
@@ -119,6 +161,12 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Apply chess clock: subtract elapsed time from mover, add increment after move
+    const now = Date.now();
+    const elapsed = now - game.clock.lastTurnAt;
+    game.clock[color] = Math.max(0, game.clock[color] - elapsed) + game.clock.increment;
+    game.clock.lastTurnAt = now;
+
     // Record move in history
     game.moveHistory.push({
       from,
@@ -152,6 +200,10 @@ io.on('connection', (socket) => {
       status: gameStatus,
       endReason,
       winner: game.winner,
+      clock: {
+        white: game.clock.white,
+        black: game.clock.black
+      },
       lastMove: { from, to }
     };
 
