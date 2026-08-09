@@ -182,6 +182,23 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('chat_message', ({ message }) => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+    if (!game) return;
+
+    const trimmed = (message || '').toString().trim().slice(0, 200);
+    if (!trimmed) return;
+
+    io.to(roomId).emit('chat_message', {
+      from: color || 'spectator',
+      message: trimmed
+    });
+  });
+
   socket.on('disconnect', () => {
     const playerInfo = playerSockets.get(socket.id);
 

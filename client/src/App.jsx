@@ -27,6 +27,8 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
 
   const chessRef = useRef(new Chess());
 
@@ -95,6 +97,10 @@ function App() {
         type: data.reason,
         winner: data.winner
       });
+    });
+
+    newSocket.on('chat_message', ({ from, message }) => {
+      setChatMessages(prev => [...prev, { from, message }]);
     });
 
     newSocket.on('error', ({ message }) => {
@@ -167,6 +173,13 @@ function App() {
   const handleResign = () => {
     if (socket) {
       socket.emit('resign');
+    }
+  };
+
+  const handleSendChat = () => {
+    if (socket && chatInput.trim()) {
+      socket.emit('chat_message', { message: chatInput.trim() });
+      setChatInput('');
     }
   };
 
@@ -341,6 +354,30 @@ function App() {
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
+        </div>
+
+        <div className="chat-box">
+          <div className="chat-messages">
+            {chatMessages.length === 0 && (
+              <p className="chat-empty">No messages yet</p>
+            )}
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`chat-message ${msg.from === playerColor ? 'mine' : ''}`}>
+                <span className="chat-from">{msg.from}:</span> {msg.message}
+              </div>
+            ))}
+          </div>
+          <div className="chat-input-row">
+            <input
+              type="text"
+              placeholder="Type a message..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+              maxLength={200}
+            />
+            <button className="btn btn-secondary" onClick={handleSendChat}>Send</button>
+          </div>
         </div>
       </div>
     </div>
