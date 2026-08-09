@@ -53,7 +53,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join_room', ({ roomId }) => {
-    const roomCode = roomId.toUpperCase();
+    const roomCode = (roomId || '').toString().trim().toUpperCase();
+    if (!/^[A-Z0-9]{1,8}$/.test(roomCode)) {
+      socket.emit('error', { message: 'Invalid room code format' });
+      return;
+    }
+
     const game = games.get(roomCode);
 
     if (!game) {
