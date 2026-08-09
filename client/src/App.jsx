@@ -27,6 +27,8 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [takebackBy, setTakebackBy] = useState(null);
+  const [takebackSent, setTakebackSent] = useState(false);
 
   const chessRef = useRef(new Chess());
 
@@ -60,6 +62,8 @@ function App() {
       setSelectedSquare(null);
       setLastMove(null);
       setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      setTakebackBy(null);
+      setTakebackSent(false);
     });
 
     newSocket.on('move_made', (data) => {
@@ -68,6 +72,7 @@ function App() {
       setTurn(data.turn);
       setStatus(data.status);
       setLastMove(data.lastMove);
+      setTakebackSent(false);
 
       if (data.san) {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
@@ -95,6 +100,34 @@ function App() {
         type: data.reason,
         winner: data.winner
       });
+    });
+
+    newSocket.on('takeback_requested', () => {
+      setTakebackBy(true);
+    });
+
+    newSocket.on('takeback_accepted', ({ fen, turn }) => {
+      chessRef.current = new Chess(fen);
+      setFen(fen);
+      setTurn(turn);
+      setSelectedSquare(null);
+      setValidMoves([]);
+      setLastMove(null);
+      setTakebackBy(null);
+      setTakebackSent(false);
+      setStatus('playing');
+      const history = chessRef.current.history();
+      setMoveHistory(history.map((san, idx) => ({
+        san,
+        color: idx % 2 === 0 ? 'white' : 'black'
+      })));
+    });
+
+    newSocket.on('takeback_declined', () => {
+      setTakebackBy(null);
+      setTakebackSent(false);
+      setError('Takeback request declined');
+      setTimeout(() => setError(null), 2000);
     });
 
     newSocket.on('error', ({ message }) => {
@@ -170,6 +203,27 @@ function App() {
     }
   };
 
+  const handleRequestTakeback = () => {
+    if (socket) {
+      socket.emit('request_takeback');
+      setTakebackSent(true);
+    }
+  };
+
+  const handleAcceptTakeback = () => {
+    if (socket) {
+      socket.emit('accept_takeback');
+    }
+    setTakebackBy(null);
+  };
+
+  const handleDeclineTakeback = () => {
+    if (socket) {
+      socket.emit('decline_takeback');
+    }
+    setTakebackBy(null);
+  };
+
   const returnToLobby = () => {
     setGameState('lobby');
     setRoomId('');
@@ -181,6 +235,8 @@ function App() {
     setMoveHistory([]);
     setGameOver(null);
     setWaitingForOpponent(false);
+    setTakebackBy(null);
+    setTakebackSent(false);
     chessRef.current = new Chess();
   };
 
@@ -338,10 +394,30 @@ function App() {
         )}
 
         <div className="game-controls">
+          <button className="btn" onClick={handleRequestTakeback} disabled={takebackSent}>
+            {takebackSent ? 'Takeback Sent' : 'Request Takeback'}
+          </button>
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
         </div>
+
+        {takebackBy && (
+          <div className="promotion-modal">
+            <div className="game-over-content">
+              <h2>Takeback</h2>
+              <p className="winner">Your opponent wants to take back a move</p>
+              <div className="game-over-actions">
+                <button className="btn btn-primary" onClick={handleAcceptTakeback}>
+                  Accept
+                </button>
+                <button className="btn btn-secondary" onClick={handleDeclineTakeback}>
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
