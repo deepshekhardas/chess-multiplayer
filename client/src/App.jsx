@@ -275,6 +275,7 @@ function App() {
     const winnerText = gameOver.winner === playerColor ? 'You win!' : 'You lose!';
     const reasonText = gameOver.type === 'checkmate' ? 'Checkmate!' :
                        gameOver.type === 'stalemate' ? 'Stalemate - Draw!' :
+                       gameOver.type === 'draw' ? 'Game Drawn' :
                        gameOver.type === 'resignation' ? 'Opponent resigned!' :
                        'Opponent disconnected - You win!';
 
@@ -283,10 +284,13 @@ function App() {
         <div className="game-over-modal">
           <div className="game-over-content">
             <h2>{reasonText}</h2>
-            {gameOver.type !== 'stalemate' && gameOver.type !== 'disconnect' && (
+            {gameOver.type !== 'stalemate' && gameOver.type !== 'draw' && gameOver.type !== 'disconnect' && (
               <p className="winner">{winnerText}</p>
             )}
             {gameOver.type === 'stalemate' && (
+              <p className="winner">Game ended in a draw</p>
+            )}
+            {gameOver.type === 'draw' && (
               <p className="winner">Game ended in a draw</p>
             )}
             <div className="game-over-actions">

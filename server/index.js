@@ -138,8 +138,26 @@ io.on('connection', (socket) => {
     } else if (game.chess.isStalemate()) {
       gameStatus = 'stalemate';
       endReason = 'stalemate';
+    } else if (game.chess.isDraw()) {
+      // Covers fifty-move rule, threefold repetition, and insufficient material
+      gameStatus = 'draw';
+      endReason = 'draw';
+    } else if (game.chess.isInsufficientMaterial()) {
+      gameStatus = 'draw';
+      endReason = 'draw';
+    } else if (game.chess.isThreefoldRepetition()) {
+      gameStatus = 'draw';
+      endReason = 'draw';
     } else if (game.chess.isCheck()) {
       gameStatus = 'check';
+    }
+
+    if (endReason === 'draw') {
+      io.to(roomId).emit('game_over', {
+        reason: 'draw',
+        winner: null,
+        winnerColor: null
+      });
     }
 
     // Broadcast move to all players in room
