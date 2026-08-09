@@ -29,6 +29,13 @@ function App() {
   const [copied, setCopied] = useState(false);
 
   const chessRef = useRef(new Chess());
+  const moveListRef = useRef(null);
+
+  useEffect(() => {
+    if (moveListRef.current) {
+      moveListRef.current.scrollTop = moveListRef.current.scrollHeight;
+    }
+  }, [moveHistory]);
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -326,7 +333,7 @@ function App() {
         {moveHistory.length > 0 && (
           <div className="move-history">
             <h3>Move History</h3>
-            <div className="move-list">
+            <div className="move-list" ref={moveListRef}>
               {moveHistory.map((move, idx) => (
                 <span key={idx} className="move-item">
                   {idx % 2 === 0 && <span className="move-number">{Math.floor(idx / 2) + 1}.</span>}
