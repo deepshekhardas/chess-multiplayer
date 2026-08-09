@@ -9,8 +9,17 @@ const PIECES = {
   'R': '♜', 'N': '♞', 'B': '♝', 'Q': '♛', 'K': '♚', 'P': '♟'
 };
 
+const THEMES = {
+  classic: { light: '#f0d9b5', dark: '#b58863', name: 'Classic' },
+  emerald: { light: '#ebecd0', dark: '#739552', name: 'Emerald' },
+  ocean: { light: '#dee3e6', dark: '#7ca0ad', name: 'Ocean' },
+  sunset: { light: '#ffebd6', dark: '#d18b47', name: 'Sunset' },
+  graphite: { light: '#cfd1d8', dark: '#5c6072', name: 'Graphite' }
+};
+
 function App() {
   const [socket, setSocket] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('chess-theme') || 'classic');
   const [gameState, setGameState] = useState('lobby');
   const [roomId, setRoomId] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -29,6 +38,17 @@ function App() {
   const [copied, setCopied] = useState(false);
 
   const chessRef = useRef(new Chess());
+
+  useEffect(() => {
+    const t = THEMES[theme];
+    if (t) {
+      document.documentElement.style.setProperty('--board-light', t.light);
+      document.documentElement.style.setProperty('--board-dark', t.dark);
+      localStorage.setItem('chess-theme', theme);
+    }
+  }, [theme]);
+
+  const selectTheme = (key) => setTheme(key);
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -341,6 +361,19 @@ function App() {
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
+        </div>
+
+        <div className="theme-picker">
+          <span className="theme-label">Board:</span>
+          {Object.entries(THEMES).map(([key, t]) => (
+            <button
+              key={key}
+              className={`theme-swatch ${theme === key ? 'active' : ''}`}
+              style={{ background: `linear-gradient(135deg, ${t.light} 50%, ${t.dark} 50%)` }}
+              onClick={() => selectTheme(key)}
+              title={t.name}
+            />
+          ))}
         </div>
       </div>
     </div>
