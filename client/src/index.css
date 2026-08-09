@@ -153,6 +153,7 @@ h1, h2, h3 {
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.2s;
+  margin: 4px;
 }
 
 .copy-btn:hover {

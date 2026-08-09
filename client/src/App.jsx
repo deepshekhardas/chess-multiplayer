@@ -105,6 +105,17 @@ function App() {
     return () => newSocket.disconnect();
   }, [playerColor]);
 
+  useEffect(() => {
+    if (!socket || waitingForOpponent) return;
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    if (room) {
+      socket.emit('join_room', { roomId: room.trim().toUpperCase() });
+      const url = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, '', url);
+    }
+  }, [socket, waitingForOpponent]);
+
   const createRoom = () => {
     if (socket) {
       socket.emit('create_room');
@@ -121,6 +132,15 @@ function App() {
   const copyRoomCode = useCallback(() => {
     if (roomId) {
       navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [roomId]);
+
+  const copyRoomLink = useCallback(() => {
+    if (roomId) {
+      const url = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+      navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -259,6 +279,9 @@ function App() {
               <div className="room-code">{roomId}</div>
               <button className="copy-btn" onClick={copyRoomCode}>
                 {copied ? 'Copied!' : 'Copy Code'}
+              </button>
+              <button className="copy-btn" onClick={copyRoomLink}>
+                {copied ? 'Link Copied!' : 'Copy Invite Link'}
               </button>
               <div className="spinner"></div>
               <p style={{ marginTop: '20px', color: '#9a9a9a' }}>
