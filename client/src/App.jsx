@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
+import { playMove, playCapture, playCheck, playGameOver, playError } from './sounds';
 
 const SOCKET_URL = 'http://localhost:3001';
 
@@ -69,6 +70,14 @@ function App() {
       setStatus(data.status);
       setLastMove(data.lastMove);
 
+      if (data.status === 'check') {
+        playCheck();
+      } else if (data.captured) {
+        playCapture();
+      } else {
+        playMove();
+      }
+
       if (data.san) {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
       }
@@ -83,6 +92,7 @@ function App() {
 
     newSocket.on('invalid_move', ({ reason }) => {
       setError(reason);
+      playError();
       setTimeout(() => setError(null), 2000);
     });
 
@@ -95,6 +105,7 @@ function App() {
         type: data.reason,
         winner: data.winner
       });
+      playGameOver();
     });
 
     newSocket.on('error', ({ message }) => {
