@@ -107,6 +107,23 @@ h1, h2, h3 {
   gap: 10px;
 }
 
+.spectate-divider {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.spectator-banner {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
 .join-form input {
   flex: 1;
   padding: 16px;
