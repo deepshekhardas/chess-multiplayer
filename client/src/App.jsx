@@ -27,6 +27,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
 
   const chessRef = useRef(new Chess());
 
@@ -60,6 +61,7 @@ function App() {
       setSelectedSquare(null);
       setLastMove(null);
       setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      setShowResignConfirm(false);
     });
 
     newSocket.on('move_made', (data) => {
@@ -167,6 +169,7 @@ function App() {
   const handleResign = () => {
     if (socket) {
       socket.emit('resign');
+      setShowResignConfirm(false);
     }
   };
 
@@ -181,6 +184,7 @@ function App() {
     setMoveHistory([]);
     setGameOver(null);
     setWaitingForOpponent(false);
+    setShowResignConfirm(false);
     chessRef.current = new Chess();
   };
 
@@ -338,10 +342,27 @@ function App() {
         )}
 
         <div className="game-controls">
-          <button className="btn" onClick={handleResign}>
+          <button className="btn" onClick={() => setShowResignConfirm(true)}>
             Resign
           </button>
         </div>
+
+        {showResignConfirm && (
+          <div className="promotion-modal">
+            <div className="game-over-content">
+              <h2>Resign?</h2>
+              <p className="winner">Are you sure you want to forfeit the game?</p>
+              <div className="game-over-actions">
+                <button className="btn btn-primary" onClick={handleResign}>
+                  Yes, Resign
+                </button>
+                <button className="btn btn-secondary" onClick={() => setShowResignConfirm(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
