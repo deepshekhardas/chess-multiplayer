@@ -27,6 +27,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [drawOfferedBy, setDrawOfferedBy] = useState(null);
 
   const chessRef = useRef(new Chess());
 
@@ -60,6 +61,7 @@ function App() {
       setSelectedSquare(null);
       setLastMove(null);
       setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      setDrawOfferedBy(null);
     });
 
     newSocket.on('move_made', (data) => {
@@ -68,6 +70,7 @@ function App() {
       setTurn(data.turn);
       setStatus(data.status);
       setLastMove(data.lastMove);
+      setDrawOfferedBy(null);
 
       if (data.san) {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
@@ -88,6 +91,15 @@ function App() {
 
     newSocket.on('opponent_disconnected', () => {
       setGameOver({ type: 'disconnect', winner: playerColor });
+    });
+
+    newSocket.on('draw_offered', ({ by }) => {
+      setDrawOfferedBy(by);
+    });
+
+    newSocket.on('draw_declined', () => {
+      setError('Opponent declined the draw offer');
+      setTimeout(() => setError(null), 2000);
     });
 
     newSocket.on('game_over', (data) => {
@@ -168,6 +180,26 @@ function App() {
     if (socket) {
       socket.emit('resign');
     }
+  };
+
+  const handleOfferDraw = () => {
+    if (socket) {
+      socket.emit('offer_draw');
+    }
+  };
+
+  const handleAcceptDraw = () => {
+    if (socket) {
+      socket.emit('accept_draw');
+    }
+    setDrawOfferedBy(null);
+  };
+
+  const handleDeclineDraw = () => {
+    if (socket) {
+      socket.emit('decline_draw');
+    }
+    setDrawOfferedBy(null);
   };
 
   const returnToLobby = () => {
@@ -275,6 +307,7 @@ function App() {
     const winnerText = gameOver.winner === playerColor ? 'You win!' : 'You lose!';
     const reasonText = gameOver.type === 'checkmate' ? 'Checkmate!' :
                        gameOver.type === 'stalemate' ? 'Stalemate - Draw!' :
+                       gameOver.type === 'draw' ? 'Game Drawn' :
                        gameOver.type === 'resignation' ? 'Opponent resigned!' :
                        'Opponent disconnected - You win!';
 
@@ -338,10 +371,30 @@ function App() {
         )}
 
         <div className="game-controls">
+          <button className="btn" onClick={handleOfferDraw}>
+            Offer Draw
+          </button>
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
         </div>
+
+        {drawOfferedBy && (
+          <div className="promotion-modal">
+            <div className="game-over-content">
+              <h2>Draw Offer</h2>
+              <p className="winner">Your opponent offers a draw</p>
+              <div className="game-over-actions">
+                <button className="btn btn-primary" onClick={handleAcceptDraw}>
+                  Accept
+                </button>
+                <button className="btn btn-secondary" onClick={handleDeclineDraw}>
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

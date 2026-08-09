@@ -127,6 +127,8 @@ io.on('connection', (socket) => {
       color
     });
 
+    game.drawOffer = null;
+
     // Check game state
     let gameStatus = 'playing';
     let endReason = null;
@@ -180,6 +182,59 @@ io.on('connection', (socket) => {
       winner,
       winnerColor: winner
     });
+  });
+
+  socket.on('offer_draw', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.status !== 'playing') return;
+
+    game.drawOffer = color;
+    const opponent = color === 'white' ? 'black' : 'white';
+    io.to(roomId).emit('draw_offered', { by: color, to: opponent });
+    console.log(`Draw offered in ${roomId} by ${color}`);
+  });
+
+  socket.on('accept_draw', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.status !== 'playing' || !game.drawOffer) return;
+    if (game.drawOffer === color) {
+      socket.emit('error', { message: 'You cannot accept your own draw offer' });
+      return;
+    }
+
+    game.status = 'draw';
+    game.drawOffer = null;
+
+    io.to(roomId).emit('game_over', {
+      reason: 'draw',
+      winner: null,
+      winnerColor: null
+    });
+    console.log(`Draw accepted in ${roomId}`);
+  });
+
+  socket.on('decline_draw', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.drawOffer === color) return;
+
+    game.drawOffer = null;
+    io.to(roomId).emit('draw_declined', { by: color });
+    console.log(`Draw declined in ${roomId}`);
   });
 
   socket.on('disconnect', () => {
