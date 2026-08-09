@@ -191,6 +191,20 @@ function App() {
 
     const isFlipped = playerColor === 'black';
 
+    const isInCheck = chessRef.current.inCheck();
+    let kingSquare = null;
+    if (isInCheck) {
+      const turn = chessRef.current.turn();
+      const boardData = chessRef.current.board();
+      for (const row of boardData) {
+        for (const cell of row) {
+          if (cell && cell.type === 'k' && cell.color === turn) {
+            kingSquare = cell.square;
+          }
+        }
+      }
+    }
+
     for (let rankIdx = 0; rankIdx < 8; rankIdx++) {
       for (let fileIdx = 0; fileIdx < 8; fileIdx++) {
         const file = isFlipped ? 7 - fileIdx : fileIdx;
@@ -203,11 +217,13 @@ function App() {
         const isValidMove = validMoves.includes(square);
         const isLastMoveSquare = lastMove &&
           (lastMove.from === square || lastMove.to === square);
+        const isKingInCheck = kingSquare === square;
 
         let className = `square ${isLight ? 'light' : 'dark'}`;
         if (isSelected) className += ' selected';
         if (isValidMove) className += ' valid-move';
         if (isLastMoveSquare) className += ' last-move';
+        if (isKingInCheck) className += ' king-check';
 
         board.push(
           <div
