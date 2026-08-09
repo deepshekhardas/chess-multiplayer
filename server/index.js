@@ -182,6 +182,76 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('request_takeback', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.status !== 'playing') return;
+    if (game.moveHistory.length === 0) {
+      socket.emit('error', { message: 'No moves to take back yet' });
+      return;
+    }
+
+    game.takebackRequest = color;
+    const opponent = color === 'white' ? 'black' : 'white';
+    io.to(roomId).emit('takeback_requested', { by: color, to: opponent });
+    console.log(`Takeback requested in ${roomId} by ${color}`);
+  });
+
+  socket.on('accept_takeback', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.status !== 'playing' || !game.takebackRequest) return;
+    if (game.takebackRequest === color) {
+      socket.emit('error', { message: 'You cannot accept your own takeback request' });
+      return;
+    }
+
+    // Undo the last two half-moves (opponent's move + requesting player's move)
+    let undoCount = 0;
+    if (game.moveHistory.length > 0) {
+      game.chess.undo();
+      game.moveHistory.pop();
+      undoCount++;
+    }
+    if (game.moveHistory.length > 0) {
+      game.chess.undo();
+      game.moveHistory.pop();
+      undoCount++;
+    }
+
+    game.takebackRequest = null;
+    game.drawOffer = null;
+
+    io.to(roomId).emit('takeback_accepted', {
+      fen: game.chess.fen(),
+      turn: game.chess.turn(),
+      undoCount
+    });
+    console.log(`Takeback accepted in ${roomId}`);
+  });
+
+  socket.on('decline_takeback', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game || game.takebackRequest === color) return;
+
+    game.takebackRequest = null;
+    io.to(roomId).emit('takeback_declined', { by: color });
+    console.log(`Takeback declined in ${roomId}`);
+  });
+
   socket.on('disconnect', () => {
     const playerInfo = playerSockets.get(socket.id);
 
