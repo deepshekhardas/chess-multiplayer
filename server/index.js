@@ -20,7 +20,11 @@ const games = new Map();
 const playerSockets = new Map(); // socketId -> { roomId, color }
 
 function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  let code;
+  do {
+    code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } while (games.has(code));
+  return code;
 }
 
 function createGame(roomId) {
