@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
+import { playMove, playCapture, playCheck, playGameOver, playError, setMuted } from './sounds';
 
 const SOCKET_URL = 'http://localhost:3001';
 
@@ -27,8 +28,21 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem('chess-sound') !== 'off');
 
   const chessRef = useRef(new Chess());
+
+  useEffect(() => {
+    setMuted(!soundOn);
+  }, [soundOn]);
+
+  const toggleSound = () => {
+    setSoundOn(prev => {
+      const next = !prev;
+      localStorage.setItem('chess-sound', next ? 'on' : 'off');
+      return next;
+    });
+  };
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -69,6 +83,14 @@ function App() {
       setStatus(data.status);
       setLastMove(data.lastMove);
 
+      if (data.status === 'check') {
+        playCheck();
+      } else if (data.captured) {
+        playCapture();
+      } else {
+        playMove();
+      }
+
       if (data.san) {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
       }
@@ -83,6 +105,7 @@ function App() {
 
     newSocket.on('invalid_move', ({ reason }) => {
       setError(reason);
+      playError();
       setTimeout(() => setError(null), 2000);
     });
 
@@ -95,6 +118,7 @@ function App() {
         type: data.reason,
         winner: data.winner
       });
+      playGameOver();
     });
 
     newSocket.on('error', ({ message }) => {
@@ -338,6 +362,9 @@ function App() {
         )}
 
         <div className="game-controls">
+          <button className="btn" onClick={toggleSound}>
+            {soundOn ? 'Mute' : 'Unmute'}
+          </button>
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
