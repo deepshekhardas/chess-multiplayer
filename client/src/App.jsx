@@ -9,6 +9,14 @@ const PIECES = {
   'R': '♜', 'N': '♞', 'B': '♝', 'Q': '♛', 'K': '♚', 'P': '♟'
 };
 
+function formatTime(ms) {
+  if (ms == null || ms < 0) ms = 0;
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function App() {
   const [socket, setSocket] = useState(null);
   const [gameState, setGameState] = useState('lobby');
@@ -27,6 +35,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [clocks, setClocks] = useState({ white: 600000, black: 600000 });
 
   const chessRef = useRef(new Chess());
 
@@ -48,7 +57,7 @@ function App() {
       setError(null);
     });
 
-    newSocket.on('game_start', ({ orientation, initialFen }) => {
+    newSocket.on('game_start', ({ orientation, initialFen, clock }) => {
       setFen(initialFen);
       chessRef.current = new Chess(initialFen);
       setGameState('playing');
@@ -60,6 +69,13 @@ function App() {
       setSelectedSquare(null);
       setLastMove(null);
       setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      if (clock) {
+        setClocks({ white: clock.white, black: clock.black });
+      }
+    });
+
+    newSocket.on('clock_tick', (clockData) => {
+      setClocks(clockData);
     });
 
     newSocket.on('move_made', (data) => {
@@ -68,6 +84,9 @@ function App() {
       setTurn(data.turn);
       setStatus(data.status);
       setLastMove(data.lastMove);
+      if (data.clock) {
+        setClocks({ white: data.clock.white, black: data.clock.black });
+      }
 
       if (data.san) {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
@@ -275,6 +294,8 @@ function App() {
     const winnerText = gameOver.winner === playerColor ? 'You win!' : 'You lose!';
     const reasonText = gameOver.type === 'checkmate' ? 'Checkmate!' :
                        gameOver.type === 'stalemate' ? 'Stalemate - Draw!' :
+                       gameOver.type === 'draw' ? 'Game Drawn' :
+                       gameOver.type === 'timeout' ? 'Time Out!' :
                        gameOver.type === 'resignation' ? 'Opponent resigned!' :
                        'Opponent disconnected - You win!';
 
@@ -310,6 +331,7 @@ function App() {
         <div className={`player-info ${opponentColor || 'black'}`}>
           <div className="color-indicator"></div>
           <span className="player-label">Opponent</span>
+          <span className="player-clock">{formatTime(clocks[opponentColor || 'black'])}</span>
           {!isMyTurn && playerColor && <span className="turn-indicator">Their Turn</span>}
         </div>
 
@@ -320,6 +342,7 @@ function App() {
         <div className={`player-info ${playerColor}`}>
           <div className="color-indicator"></div>
           <span className="player-label">You ({playerColor})</span>
+          <span className="player-clock">{formatTime(clocks[playerColor])}</span>
           {isMyTurn && <span className="turn-indicator">Your Turn</span>}
         </div>
 

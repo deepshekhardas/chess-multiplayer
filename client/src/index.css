@@ -223,6 +223,21 @@ h1, h2, h3 {
   font-weight: 600;
 }
 
+.player-clock {
+  margin-left: auto;
+  font-family: 'Source Sans 3', monospace;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-light);
+  background: var(--bg-primary);
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+
+.player-info .turn-indicator {
+  margin-left: 10px;
+}
+
 .chess-board {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
