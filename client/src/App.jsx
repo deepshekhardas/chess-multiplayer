@@ -326,6 +326,9 @@ function App() {
         {moveHistory.length > 0 && (
           <div className="move-history">
             <h3>Move History</h3>
+            <div className="last-move-bar">
+              Last move: <strong>{moveHistory[moveHistory.length - 1].san}</strong>
+            </div>
             <div className="move-list">
               {moveHistory.map((move, idx) => (
                 <span key={idx} className="move-item">

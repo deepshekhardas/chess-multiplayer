@@ -357,6 +357,20 @@ h1, h2, h3 {
   color: var(--text-muted);
 }
 
+.last-move-bar {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  background: var(--bg-primary);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.last-move-bar strong {
+  color: var(--accent);
+  font-family: 'Source Sans 3', monospace;
+}
+
 .move-list {
   display: flex;
   flex-wrap: wrap;
