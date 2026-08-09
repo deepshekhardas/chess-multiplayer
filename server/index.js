@@ -215,6 +215,50 @@ io.on('connection', (socket) => {
 
     console.log(`Player disconnected: ${socket.id}`);
   });
+
+  socket.on('request_rematch', () => {
+    const playerInfo = playerSockets.get(socket.id);
+    if (!playerInfo) return;
+
+    const { roomId, color } = playerInfo;
+    const game = games.get(roomId);
+
+    if (!game) return;
+
+    game.rematchRequests = game.rematchRequests || {};
+    game.rematchRequests[color] = true;
+
+    const opponent = color === 'white' ? 'black' : 'white';
+    const opponentRequested = game.rematchRequests[opponent];
+
+    if (opponentRequested) {
+      // Both players want a rematch; reset the board and swap colors
+      const oldWhite = game.players.white;
+      const oldBlack = game.players.black;
+
+      game.chess = new Chess();
+      game.players.white = oldBlack;
+      game.players.black = oldWhite;
+      game.moveHistory = [];
+      game.status = 'playing';
+      game.winner = null;
+      game.rematchRequests = {};
+      game.drawOffer = null;
+
+      if (oldWhite) playerSockets.set(oldWhite, { roomId, color: 'black' });
+      if (oldBlack) playerSockets.set(oldBlack, { roomId, color: 'white' });
+
+      io.to(roomId).emit('rematch_started', {
+        whitePlayer: oldBlack,
+        blackPlayer: oldWhite,
+        initialFen: game.chess.fen()
+      });
+      console.log(`Rematch started in ${roomId}`);
+    } else {
+      io.to(roomId).emit('rematch_requested', { by: color });
+      console.log(`Rematch requested in ${roomId} by ${color}`);
+    }
+  });
 });
 
 const PORT = process.env.PORT || 3001;
