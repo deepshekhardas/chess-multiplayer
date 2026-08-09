@@ -284,6 +284,31 @@ h1, h2, h3 {
   transition: transform 0.1s ease;
 }
 
+.coord-file,
+.coord-rank {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  user-select: none;
+}
+
+.coord-file {
+  bottom: 2px;
+  right: 4px;
+}
+
+.coord-rank {
+  top: 2px;
+  left: 4px;
+}
+
+.square.dark .coord-file,
+.square.dark .coord-rank {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .piece:hover {
   transform: scale(1.1);
 }

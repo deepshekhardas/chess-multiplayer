@@ -204,6 +204,9 @@ function App() {
         const isLastMoveSquare = lastMove &&
           (lastMove.from === square || lastMove.to === square);
 
+        const isLastRank = rankIdx === 7;
+        const isFirstFile = fileIdx === 0;
+
         let className = `square ${isLight ? 'light' : 'dark'}`;
         if (isSelected) className += ' selected';
         if (isValidMove) className += ' valid-move';
@@ -215,6 +218,12 @@ function App() {
             className={className}
             onClick={() => handleSquareClick(square)}
           >
+            {isLastRank && (
+              <span className="coord-file">{files[file]}</span>
+            )}
+            {isFirstFile && (
+              <span className="coord-rank">{ranks[rank]}</span>
+            )}
             {piece && (
               <span className="piece">{PIECES[piece.color === 'w' ? piece.type.toUpperCase() : piece.type]}</span>
             )}
