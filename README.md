@@ -6,7 +6,7 @@ A two-player chess app built with React, Socket.IO and chess.js. Create a room, 
 
 ## Try it locally
 
-Prerequisite: Node.js 20 or later with npm. Clone this repository, then open two terminals.
+Prerequisite: Node.js 22.12 or later with npm, matching the [Vite runtime requirements](https://vite.dev/guide/). Clone this repository, then open two terminals.
 
 **Terminal 1 — game server**
 
