@@ -234,6 +234,9 @@ h1, h2, h3 {
 }
 
 .square {
+  border: 0;
+  padding: 0;
+  font-family: inherit;
   width: 60px;
   height: 60px;
   display: flex;
@@ -287,6 +290,11 @@ h1, h2, h3 {
 .piece:hover {
   transform: scale(1.1);
 }
+
+.white-piece { color: #fff; -webkit-text-stroke: 1px #47413c; }
+.black-piece { color: #24211f; -webkit-text-stroke: 1px #ddd3c5; }
+.square:focus-visible { outline: 3px solid #2563eb; outline-offset: -3px; }
+.btn:disabled { opacity: 0.55; cursor: default; transform: none; }
 
 .promotion-modal {
   position: fixed;
@@ -438,23 +446,30 @@ h1, h2, h3 {
 }
 
 @media (max-width: 600px) {
+  .app { padding: 12px; }
+  .game-container { padding: 0; }
+  .join-form input { min-width: 0; }
   .chess-board {
-    width: 320px;
-    height: 320px;
+    width: min(100%, 360px);
+    height: auto;
+    aspect-ratio: 1;
   }
 
   .square {
-    width: 40px;
-    height: 40px;
-    font-size: 32px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    font-size: clamp(24px, 7vw, 36px);
   }
 
   .player-info {
-    min-width: 320px;
+    min-width: 0;
+    width: min(100%, 360px);
+    padding: 12px;
   }
 
   .move-history {
-    width: 320px;
+    width: min(100%, 360px);
   }
 
   .lobby h1 {

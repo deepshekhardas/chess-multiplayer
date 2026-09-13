@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { Chess } from 'chess.js';
+import { randomBytes } from 'node:crypto';
 
 const app = express();
 app.use(cors());
@@ -20,7 +21,28 @@ const games = new Map();
 const playerSockets = new Map(); // socketId -> { roomId, color }
 
 function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  let code;
+  do { code = randomBytes(3).toString('hex').toUpperCase(); } while (games.has(code));
+  return code;
+}
+
+const isActive = (game) => game && ['playing', 'check'].includes(game.status);
+
+function leaveRoom(socket) {
+  const player = playerSockets.get(socket.id);
+  if (!player) return;
+  const game = games.get(player.roomId);
+  if (isActive(game)) {
+    game.status = 'disconnected';
+    game.winner = player.color === 'white' ? 'black' : 'white';
+    socket.to(player.roomId).emit('game_over', { reason: 'disconnect', winner: game.winner });
+  }
+  if (game) {
+    game.players[player.color] = null;
+    if (!game.players.white && !game.players.black) games.delete(player.roomId);
+  }
+  socket.leave(player.roomId);
+  playerSockets.delete(socket.id);
 }
 
 function createGame(roomId) {
@@ -40,6 +62,10 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   socket.on('create_room', () => {
+    if (playerSockets.has(socket.id)) {
+      socket.emit('error', { message: 'You are already in a room' });
+      return;
+    }
     const roomId = generateRoomCode();
     const game = createGame(roomId);
     games.set(roomId, game);
@@ -52,7 +78,16 @@ io.on('connection', (socket) => {
     console.log(`Room ${roomId} created by ${socket.id}`);
   });
 
-  socket.on('join_room', ({ roomId }) => {
+  socket.on('join_room', (payload) => {
+    const roomId = payload?.roomId;
+    if (typeof roomId !== 'string' || !/^[a-z0-9]{6}$/i.test(roomId)) {
+      socket.emit('error', { message: 'Enter a valid six-character room code' });
+      return;
+    }
+    if (playerSockets.has(socket.id)) {
+      socket.emit('error', { message: 'You are already in a room' });
+      return;
+    }
     const roomCode = roomId.toUpperCase();
     const game = games.get(roomCode);
 
@@ -61,13 +96,14 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (game.players.black) {
+    if (game.status !== 'waiting' || !game.players.white || game.players.black) {
       socket.emit('error', { message: 'Room is full' });
       return;
     }
 
     game.players.black = socket.id;
     playerSockets.set(socket.id, { roomId: roomCode, color: 'black' });
+    game.status = 'playing';
 
     socket.join(roomCode);
     socket.emit('room_joined', { roomId: roomCode, color: 'black' });
@@ -84,7 +120,14 @@ io.on('connection', (socket) => {
     console.log(`Player ${socket.id} joined room ${roomCode}`);
   });
 
-  socket.on('make_move', ({ from, to, promotion }) => {
+  socket.on('make_move', (payload) => {
+    const { from, to, promotion } = payload || {};
+    if (typeof from !== 'string' || typeof to !== 'string' ||
+        !/^[a-h][1-8]$/.test(from) || !/^[a-h][1-8]$/.test(to) ||
+        (promotion !== undefined && !['q', 'r', 'b', 'n'].includes(promotion))) {
+      socket.emit('invalid_move', { reason: 'Invalid move' });
+      return;
+    }
     const playerInfo = playerSockets.get(socket.id);
     if (!playerInfo) {
       socket.emit('error', { message: 'Not in a game' });
@@ -96,6 +139,11 @@ io.on('connection', (socket) => {
 
     if (!game) {
       socket.emit('error', { message: 'Game not found' });
+      return;
+    }
+
+    if (!isActive(game) || !game.players.white || !game.players.black) {
+      socket.emit('invalid_move', { reason: 'Game is not active' });
       return;
     }
 
@@ -112,7 +160,11 @@ io.on('connection', (socket) => {
       move.promotion = promotion;
     }
 
-    const result = game.chess.move(move);
+    let result;
+    try { result = game.chess.move(move); } catch {
+      socket.emit('invalid_move', { reason: 'Invalid move' });
+      return;
+    }
 
     if (result === null) {
       socket.emit('invalid_move', { reason: 'Invalid move' });
@@ -138,6 +190,9 @@ io.on('connection', (socket) => {
     } else if (game.chess.isStalemate()) {
       gameStatus = 'stalemate';
       endReason = 'stalemate';
+    } else if (game.chess.isDraw()) {
+      gameStatus = 'draw';
+      endReason = 'draw';
     } else if (game.chess.isCheck()) {
       gameStatus = 'check';
     }
@@ -147,6 +202,7 @@ io.on('connection', (socket) => {
       from,
       to,
       san: result.san,
+      color,
       fen: game.chess.fen(),
       turn: game.chess.turn(),
       status: gameStatus,
@@ -168,7 +224,7 @@ io.on('connection', (socket) => {
     const { roomId, color } = playerInfo;
     const game = games.get(roomId);
 
-    if (!game || game.status !== 'playing') return;
+    if (!isActive(game)) return;
 
     // Other player wins by resignation
     const winner = color === 'white' ? 'black' : 'white';
@@ -182,42 +238,11 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('disconnect', () => {
-    const playerInfo = playerSockets.get(socket.id);
-
-    if (playerInfo) {
-      const { roomId, color } = playerInfo;
-      const game = games.get(roomId);
-
-      if (game && game.status === 'playing') {
-        // Notify opponent and end game
-        io.to(roomId).emit('opponent_disconnected', { color });
-        io.to(roomId).emit('game_over', {
-          reason: 'disconnect',
-          winner: color === 'white' ? 'black' : 'white',
-          winnerColor: color === 'white' ? 'black' : 'white'
-        });
-      }
-
-      // Clean up game if both players gone
-      if (game) {
-        if (game.players.white === socket.id) game.players.white = null;
-        if (game.players.black === socket.id) game.players.black = null;
-
-        if (!game.players.white && !game.players.black) {
-          games.delete(roomId);
-          console.log(`Room ${roomId} deleted`);
-        }
-      }
-
-      playerSockets.delete(socket.id);
-    }
-
-    console.log(`Player disconnected: ${socket.id}`);
-  });
+  socket.on('leave_room', () => leaveRoom(socket));
+  socket.on('disconnect', () => leaveRoom(socket));
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Chess server running on port ${PORT}`);
+const PORT = Number(process.env.PORT ?? 3001);
+server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
+  console.log(`Chess server running on port ${server.address().port}`);
 });

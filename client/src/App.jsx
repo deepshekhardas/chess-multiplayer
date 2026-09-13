@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
 
-const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
 
 const PIECES = {
   'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
@@ -59,7 +59,7 @@ function App() {
       setGameOver(null);
       setSelectedSquare(null);
       setLastMove(null);
-      setOpponentColor(playerColor === 'white' ? 'black' : 'white');
+      setOpponentColor(orientation.white === newSocket.id ? 'black' : 'white');
     });
 
     newSocket.on('move_made', (data) => {
@@ -73,9 +73,9 @@ function App() {
         setMoveHistory(prev => [...prev, { san: data.san, color: data.color }]);
       }
 
-      if (data.status === 'checkmate' || data.status === 'stalemate' || data.reason === 'resignation') {
+      if (['checkmate', 'stalemate', 'draw'].includes(data.status)) {
         setGameOver({
-          type: data.status === 'checkmate' ? 'checkmate' : data.reason,
+          type: data.status,
           winner: data.winner
         });
       }
@@ -84,10 +84,6 @@ function App() {
     newSocket.on('invalid_move', ({ reason }) => {
       setError(reason);
       setTimeout(() => setError(null), 2000);
-    });
-
-    newSocket.on('opponent_disconnected', () => {
-      setGameOver({ type: 'disconnect', winner: playerColor });
     });
 
     newSocket.on('game_over', (data) => {
@@ -102,8 +98,18 @@ function App() {
       setWaitingForOpponent(false);
     });
 
+    newSocket.on('disconnect', () => {
+      setGameState('lobby');
+      setWaitingForOpponent(false);
+      setPlayerColor(null);
+      setRoomId('');
+      setError('Connection lost. Create or join a new game after reconnecting.');
+    });
+    newSocket.on('connect_error', () => {
+      setError('Cannot reach the game server. Check that it is running.');
+    });
     return () => newSocket.disconnect();
-  }, [playerColor]);
+  }, []);
 
   const createRoom = () => {
     if (socket) {
@@ -132,13 +138,13 @@ function App() {
   };
 
   const handleSquareClick = (square) => {
-    if (!socket || status !== 'playing') return;
+    if (!socket || !['playing', 'check'].includes(status)) return;
     if ((turn === 'w' && playerColor !== 'white') || (turn === 'b' && playerColor !== 'black')) return;
 
     if (selectedSquare) {
       const moves = getValidMovesForSquare(selectedSquare);
       if (moves.includes(square)) {
-        const piece = chessRef.current.get(square);
+        const piece = chessRef.current.get(selectedSquare);
         const isPromotion = piece && piece.type === 'p' &&
           ((playerColor === 'white' && square[1] === '8') ||
            (playerColor === 'black' && square[1] === '1'));
@@ -171,6 +177,7 @@ function App() {
   };
 
   const returnToLobby = () => {
+    socket?.emit('leave_room');
     setGameState('lobby');
     setRoomId('');
     setPlayerColor(null);
@@ -194,7 +201,7 @@ function App() {
     for (let rankIdx = 0; rankIdx < 8; rankIdx++) {
       for (let fileIdx = 0; fileIdx < 8; fileIdx++) {
         const file = isFlipped ? 7 - fileIdx : fileIdx;
-        const rank = isFlipped ? rankIdx : 7 - rankIdx;
+        const rank = isFlipped ? 7 - rankIdx : rankIdx;
         const square = files[file] + ranks[rank];
         const isLight = (file + rank) % 2 === 0;
         const piece = chessRef.current.get(square);
@@ -210,15 +217,18 @@ function App() {
         if (isLastMoveSquare) className += ' last-move';
 
         board.push(
-          <div
+          <button
+            type="button"
             key={square}
             className={className}
+            aria-label={`${square}${piece ? ` ${piece.color === 'w' ? 'white' : 'black'} ${piece.type}` : ''}`}
+            aria-pressed={isSelected}
             onClick={() => handleSquareClick(square)}
           >
             {piece && (
-              <span className="piece">{PIECES[piece.color === 'w' ? piece.type.toUpperCase() : piece.type]}</span>
+              <span className={`piece ${piece.color === 'w' ? 'white-piece' : 'black-piece'}`}>{PIECES[piece.color === 'w' ? piece.type.toUpperCase() : piece.type]}</span>
             )}
-          </div>
+          </button>
         );
       }
     }
@@ -235,7 +245,7 @@ function App() {
           {error && <div className="error-message">{error}</div>}
 
           <div className="lobby-actions">
-            <button className="btn btn-primary" onClick={createRoom}>
+            <button className="btn btn-primary" onClick={createRoom} disabled={waitingForOpponent}>
               Create Game
             </button>
 
@@ -247,7 +257,7 @@ function App() {
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={6}
               />
-              <button className="btn btn-secondary" onClick={joinRoom}>
+              <button className="btn btn-secondary" onClick={joinRoom} disabled={waitingForOpponent}>
                 Join
               </button>
             </div>
@@ -275,18 +285,19 @@ function App() {
     const winnerText = gameOver.winner === playerColor ? 'You win!' : 'You lose!';
     const reasonText = gameOver.type === 'checkmate' ? 'Checkmate!' :
                        gameOver.type === 'stalemate' ? 'Stalemate - Draw!' :
-                       gameOver.type === 'resignation' ? 'Opponent resigned!' :
-                       'Opponent disconnected - You win!';
+                       gameOver.type === 'draw' ? 'Draw!' :
+                       gameOver.type === 'resignation' ? 'Game ended by resignation' :
+                       'Opponent disconnected';
 
     return (
       <div className="app">
         <div className="game-over-modal">
           <div className="game-over-content">
             <h2>{reasonText}</h2>
-            {gameOver.type !== 'stalemate' && gameOver.type !== 'disconnect' && (
+            {!['stalemate', 'draw'].includes(gameOver.type) && (
               <p className="winner">{winnerText}</p>
             )}
-            {gameOver.type === 'stalemate' && (
+            {['stalemate', 'draw'].includes(gameOver.type) && (
               <p className="winner">Game ended in a draw</p>
             )}
             <div className="game-over-actions">
