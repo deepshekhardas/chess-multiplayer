@@ -8,6 +8,16 @@ import { randomBytes } from 'node:crypto';
 const app = express();
 app.use(cors());
 
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    activeRooms: games.size,
+    connectedSockets: playerSockets.size,
+    timestamp: new Date().toISOString()
+  });
+});
+
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
