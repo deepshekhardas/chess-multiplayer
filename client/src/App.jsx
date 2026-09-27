@@ -9,6 +9,24 @@ const PIECES = {
   'R': '♜', 'N': '♞', 'B': '♝', 'Q': '♛', 'K': '♚', 'P': '♟'
 };
 
+function getCapturedPieces(chess) {
+  const byWhite = [];
+  const byBlack = [];
+  const history = chess.history({ verbose: true });
+  for (const move of history) {
+    if (move.captured) {
+      if (move.color === 'w') {
+        byWhite.push(move.captured);
+      } else {
+        byBlack.push(move.captured);
+      }
+    }
+  }
+  const order = ['q', 'r', 'b', 'n', 'p'];
+  const sort = arr => arr.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return { byWhite: sort(byWhite), byBlack: sort(byBlack) };
+}
+
 function App() {
   const [socket, setSocket] = useState(null);
   const [gameState, setGameState] = useState('lobby');
@@ -324,8 +342,26 @@ function App() {
           {!isMyTurn && playerColor && <span className="turn-indicator">Their Turn</span>}
         </div>
 
+        <div className="captured-row">
+          <span className="captured-label">Captured</span>
+          <span className="captured-pieces">
+            {getCapturedPieces(chessRef.current).byBlack.map((p, i) => (
+              <span key={`b${i}`} className="captured-piece">{PIECES[p]}</span>
+            ))}
+          </span>
+        </div>
+
         <div className="chess-board">
           {renderBoard()}
+        </div>
+
+        <div className="captured-row">
+          <span className="captured-label">Captured</span>
+          <span className="captured-pieces">
+            {getCapturedPieces(chessRef.current).byWhite.map((p, i) => (
+              <span key={`w${i}`} className="captured-piece">{PIECES[p]}</span>
+            ))}
+          </span>
         </div>
 
         <div className={`player-info ${playerColor}`}>
