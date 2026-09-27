@@ -27,6 +27,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [manualFlip, setManualFlip] = useState(false);
 
   const chessRef = useRef(new Chess());
 
@@ -196,7 +197,7 @@ function App() {
     const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
-    const isFlipped = playerColor === 'black';
+    const isFlipped = manualFlip ? !(playerColor === 'black') : (playerColor === 'black');
 
     for (let rankIdx = 0; rankIdx < 8; rankIdx++) {
       for (let fileIdx = 0; fileIdx < 8; fileIdx++) {
@@ -349,6 +350,9 @@ function App() {
         )}
 
         <div className="game-controls">
+          <button className="btn" onClick={() => setManualFlip(!manualFlip)}>
+            Flip Board
+          </button>
           <button className="btn" onClick={handleResign}>
             Resign
           </button>
