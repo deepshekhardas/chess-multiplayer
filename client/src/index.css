@@ -273,6 +273,10 @@ h1, h2, h3 {
   background: var(--highlight-last) !important;
 }
 
+.square.king-check {
+  background: #ff6b6b !important;
+}
+
 .square:hover {
   filter: brightness(1.1);
 }
