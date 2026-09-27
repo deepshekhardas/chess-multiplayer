@@ -27,6 +27,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [pendingPromotion, setPendingPromotion] = useState(null);
 
   const chessRef = useRef(new Chess());
 
@@ -150,7 +151,7 @@ function App() {
            (playerColor === 'black' && square[1] === '1'));
 
         if (isPromotion) {
-          socket.emit('make_move', { from: selectedSquare, to: square, promotion: 'q' });
+          setPendingPromotion({ from: selectedSquare, to: square });
         } else {
           socket.emit('make_move', { from: selectedSquare, to: square });
         }
@@ -174,6 +175,13 @@ function App() {
     if (socket) {
       socket.emit('resign');
     }
+  };
+
+  const handlePromotion = (promotion) => {
+    if (socket && pendingPromotion) {
+      socket.emit('make_move', { ...pendingPromotion, promotion });
+    }
+    setPendingPromotion(null);
   };
 
   const returnToLobby = () => {
@@ -353,6 +361,22 @@ function App() {
             Resign
           </button>
         </div>
+
+        {pendingPromotion && (
+          <div className="promotion-modal">
+            <div className="promotion-options">
+              {['q', 'r', 'b', 'n'].map((pieceType) => (
+                <button
+                  key={pieceType}
+                  className="promotion-piece"
+                  onClick={() => handlePromotion(pieceType)}
+                >
+                  {PIECES[playerColor === 'white' ? pieceType.toUpperCase() : pieceType]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
