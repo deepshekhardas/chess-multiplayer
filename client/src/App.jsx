@@ -176,6 +176,14 @@ function App() {
     }
   };
 
+  const handleCopyPgn = () => {
+    const pgn = chessRef.current.pgn();
+    if (!pgn) return;
+    navigator.clipboard.writeText(pgn);
+    setError('PGN copied to clipboard');
+    setTimeout(() => setError(null), 2000);
+  };
+
   const returnToLobby = () => {
     socket?.emit('leave_room');
     setGameState('lobby');
@@ -351,6 +359,9 @@ function App() {
         <div className="game-controls">
           <button className="btn" onClick={handleResign}>
             Resign
+          </button>
+          <button className="btn" onClick={handleCopyPgn}>
+            Copy PGN
           </button>
         </div>
       </div>
