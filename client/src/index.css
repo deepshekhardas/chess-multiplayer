@@ -260,6 +260,12 @@ h1, h2, h3 {
   background: var(--highlight-selected) !important;
 }
 
+.square.focused {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+  z-index: 2;
+}
+
 .square.valid-move::after {
   content: '';
   position: absolute;

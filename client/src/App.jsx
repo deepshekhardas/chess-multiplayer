@@ -27,6 +27,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentColor, setOpponentColor] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [focusedSquare, setFocusedSquare] = useState('e2');
 
   const chessRef = useRef(new Chess());
 
@@ -176,6 +177,53 @@ function App() {
     }
   };
 
+  const moveFocus = (direction) => {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const file = files.indexOf(focusedSquare[0]);
+    const rank = parseInt(focusedSquare[1], 10);
+    let nf = file;
+    let nr = rank;
+    if (direction === 'up') nr = Math.min(8, rank + 1);
+    if (direction === 'down') nr = Math.max(1, rank - 1);
+    if (direction === 'left') nf = Math.max(0, file - 1);
+    if (direction === 'right') nf = Math.min(7, file + 1);
+    setFocusedSquare(files[nf] + nr);
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (gameState !== 'playing' || gameOver) return;
+      switch (e.key) {
+        case 'ArrowUp': e.preventDefault(); moveFocus('up'); break;
+        case 'ArrowDown': e.preventDefault(); moveFocus('down'); break;
+        case 'ArrowLeft': e.preventDefault(); moveFocus('left'); break;
+        case 'ArrowRight': e.preventDefault(); moveFocus('right'); break;
+        case 'Enter': {
+          e.preventDefault();
+          if (selectedSquare && selectedSquare !== focusedSquare) {
+            tryMakeMove(selectedSquare, focusedSquare);
+          } else {
+            const piece = chessRef.current.get(focusedSquare);
+            if (piece && ((playerColor === 'white' && piece.color === 'w') ||
+                          (playerColor === 'black' && piece.color === 'b'))) {
+              setSelectedSquare(focusedSquare);
+              setValidMoves(getValidMovesForSquare(focusedSquare));
+            }
+          }
+          break;
+        }
+        case 'Escape':
+          setSelectedSquare(null);
+          setValidMoves([]);
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const returnToLobby = () => {
     socket?.emit('leave_room');
     setGameState('lobby');
@@ -210,11 +258,13 @@ function App() {
         const isValidMove = validMoves.includes(square);
         const isLastMoveSquare = lastMove &&
           (lastMove.from === square || lastMove.to === square);
+        const isFocused = focusedSquare === square;
 
         let className = `square ${isLight ? 'light' : 'dark'}`;
         if (isSelected) className += ' selected';
         if (isValidMove) className += ' valid-move';
         if (isLastMoveSquare) className += ' last-move';
+        if (isFocused) className += ' focused';
 
         board.push(
           <button
