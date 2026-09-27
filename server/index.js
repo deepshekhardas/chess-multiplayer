@@ -208,6 +208,7 @@ io.on('connection', (socket) => {
       status: gameStatus,
       endReason,
       winner: game.winner,
+      captured: result.captured ? true : false,
       lastMove: { from, to }
     };
 
